@@ -1,0 +1,36 @@
+{
+  "title": "Живая проверка FigmaSpark",
+  "source": "test-requirements.md · тестовое ТЗ",
+  "nodeIds": ["1:2"],
+  "requirements": [
+    {
+      "id": "REQ-01",
+      "title": "Размер фрейма: 640 × 360 px",
+      "selector": { "type": "FRAME", "name": "FigmaSpark · test screen" },
+      "checks": [{ "property": "width", "value": 640 }, { "property": "height", "value": 360 }]
+    },
+    {
+      "id": "REQ-02",
+      "title": "Заголовок экрана — Players",
+      "selector": { "name": "Page title", "type": "TEXT" },
+      "checks": [{ "property": "characters", "value": "Players" }]
+    },
+    {
+      "id": "REQ-03",
+      "title": "Размер шрифта заголовка должен быть 28 px",
+      "selector": { "name": "Page title", "type": "TEXT" },
+      "checks": [{ "property": "fontSize", "value": 28 }]
+    },
+    {
+      "id": "REQ-04",
+      "title": "На экране должна быть кнопка Reset filters",
+      "selector": { "text": "Reset filters", "type": "TEXT" }
+    },
+    {
+      "id": "REQ-05",
+      "title": "Работу кнопки нужно проверить в приложении",
+      "selector": { "name": "Page title" },
+      "checks": [{ "property": "runtimeBehavior", "value": "resets filters" }]
+    }
+  ]
+}

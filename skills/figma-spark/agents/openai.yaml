@@ -1,0 +1,6 @@
+interface:
+  display_name: "FigmaSpark"
+  short_description: "Быстрая проверка живого макета Figma по документации"
+  default_prompt: "Используй $figma-spark: сначала получи обзор макета, найди нужные экраны и проверь их по моей документации. Покажи замечания в чате с источниками и node IDs."
+policy:
+  allow_implicit_invocation: true

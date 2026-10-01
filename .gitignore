@@ -1,0 +1,8 @@
+node_modules/
+.runtime/
+plugin/dist/
+plugin/manifest.json
+output/*
+!output/.gitkeep
+*.log
+.DS_Store

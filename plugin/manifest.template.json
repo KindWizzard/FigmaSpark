@@ -1,0 +1,17 @@
+{
+  "name": "FigmaSpark",
+  "id": "REPLACE_WITH_YOUR_FIGMA_PLUGIN_ID",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "menu": [
+    { "name": "Подключиться", "command": "connect" },
+    { "name": "Подключиться и разрешить правки", "command": "edit" }
+  ],
+  "networkAccess": {
+    "allowedDomains": ["http://localhost:3847", "ws://localhost:3847"],
+    "reasoning": "Connect to the user's local FigmaSpark bridge for design review, without a cloud relay or Figma access token."
+  }
+}

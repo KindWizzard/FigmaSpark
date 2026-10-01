@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="920" viewBox="0 0 1360 920" role="img" aria-labelledby="title desc">
+  <title id="title">FigmaSpark: подключение и архитектура</title>
+  <desc id="desc">Клик по маскоту даёт локальную ссылку. Агент получает актуальный скилл и сессию. CLI обращается к локальному bridge по HTTP JSON; bridge использует постоянный WebSocket к UI плагина, а sandbox — Figma Plugin API. Агент начинает с обзора и читает нужные области.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#447763" stroke-width="2"/></marker>
+    <marker id="small" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#a16b28" stroke-width="2"/></marker>
+    <style>
+      text{font-family:Arial,'DejaVu Sans',sans-serif;fill:#203a31;paint-order:stroke;stroke:#fffdf7;stroke-width:2px;stroke-linejoin:round}
+      .title{font-size:40px;font-weight:700;letter-spacing:-1px}
+      .subtitle{font-size:18px;fill:#557363}
+      .label{font-size:13px;font-weight:700;letter-spacing:2px;fill:#557363}
+      .head{font-size:21px;font-weight:700}
+      .body{font-size:16px;fill:#4a6558}
+      .small{font-size:14px;fill:#4a6558}
+      .mono{font-family:monospace;font-size:15px;fill:#203a31}
+      .card{fill:#fffdf7;stroke:#a6bcad;stroke-width:1.5}
+      .mint{fill:#eff8f1;stroke:#91b39c;stroke-width:1.5}
+      .flow{fill:none;stroke:#447763;stroke-width:2.5;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <!-- The canvas is intentionally transparent; only diagram elements have fills. -->
+  <g transform="translate(42 31)" shape-rendering="crispEdges">
+    <path d="M20 0h12v12h12v12h12v20H44v12H12V44H0V24h12V12h8z" fill="#ee9535"/>
+    <path d="M20 18h8v8h-8zM36 18h8v8h-8zM24 36h16v8H24z" fill="#203a31"/>
+  </g>
+  <text x="118" y="69" class="title">FigmaSpark</text>
+  <text x="42" y="112" class="subtitle">Локальная инструкция. Актуальный скилл. Только нужная часть макета.</text>
+
+  <text x="42" y="161" class="label">01 / ПОДКЛЮЧЕНИЕ</text>
+  <rect x="42" y="184" width="274" height="152" rx="14" class="card"/>
+  <text x="62" y="214" class="label">1</text>
+  <text x="62" y="246" class="head">Клик по искре</text>
+  <text x="62" y="273" class="body">Короткая ссылка в буфер</text>
+  <text x="62" y="299" class="mono">/connect?session=ID</text>
+  <path d="M326 260H355" class="flow"/>
+
+  <rect x="366" y="184" width="278" height="152" rx="14" class="mint"/>
+  <text x="386" y="214" class="label">2</text>
+  <text x="386" y="246" class="head">ИИ читает /connect</text>
+  <text x="386" y="273" class="body">Скилл, инструменты и сессия</text>
+  <text x="386" y="299" class="small">Markdown / JSON с локального порта</text>
+  <path d="M654 260H683" class="flow"/>
+
+  <rect x="694" y="184" width="278" height="152" rx="14" class="card"/>
+  <text x="714" y="214" class="label">3</text>
+  <text x="714" y="246" class="head">Скилл в редакторе</text>
+  <text x="714" y="273" class="body">Установить, если отсутствует</text>
+  <text x="714" y="299" class="small">Codex · Cursor · Claude Code</text>
+  <path d="M982 260H1011" class="flow"/>
+
+  <rect x="1022" y="184" width="296" height="152" rx="14" class="mint"/>
+  <text x="1042" y="214" class="label">4</text>
+  <text x="1042" y="246" class="head">Сначала обзор</text>
+  <text x="1042" y="273" class="body">Потом поиск и нужные node IDs</text>
+  <text x="1042" y="299" class="small">Сверка структуры и изображений с ТЗ</text>
+
+  <text x="42" y="402" class="label">02 / КАНАЛ К ЖИВОЙ FIGMA</text>
+  <rect x="42" y="428" width="250" height="214" rx="14" class="card"/>
+  <text x="62" y="467" class="head">Локальный ИИ-агент</text>
+  <text x="62" y="497" class="mono">figma-spark / CLI</text>
+  <text x="62" y="530" class="body">Читает требования</text>
+  <text x="62" y="555" class="body">Выбирает область</text>
+  <text x="62" y="580" class="body">Возвращает замечания</text>
+  <text x="62" y="617" class="small">Один клиент для серии чтений</text>
+
+  <path d="M307 551H346" class="flow" marker-start="url(#arrow)"/>
+  <text x="330" y="464" text-anchor="middle" class="small">HTTP</text>
+  <text x="330" y="486" text-anchor="middle" class="small">JSON</text>
+
+  <rect x="360" y="428" width="296" height="214" rx="14" class="mint"/>
+  <text x="380" y="467" class="head">Node.js bridge</text>
+  <text x="380" y="497" class="mono">127.0.0.1:3847</text>
+  <text x="380" y="530" class="body">Хостит инструкцию и скилл</text>
+  <text x="380" y="555" class="body">Проверяет доступ к данным</text>
+  <text x="380" y="580" class="body">Маршрутизирует сессии</text>
+  <text x="380" y="617" class="small">/connect · /status · /rpc</text>
+
+  <path d="M671 551H710" class="flow" marker-start="url(#arrow)"/>
+  <text x="690" y="464" text-anchor="middle" class="small">WS</text>
+  <text x="690" y="486" text-anchor="middle" class="small">JSON</text>
+
+  <rect x="724" y="428" width="250" height="214" rx="14" class="card"/>
+  <text x="744" y="467" class="head">UI плагина</text>
+  <text x="744" y="497" class="mono">120 × 80 px</text>
+  <text x="744" y="530" class="body">Постоянное соединение</text>
+  <text x="744" y="555" class="body">Связь и запросы → насос</text>
+  <text x="744" y="580" class="body">Клик → локальная ссылка</text>
+  <text x="744" y="617" class="small">Шары зависят от объёма JSON</text>
+
+  <path d="M989 551H1028" class="flow" marker-start="url(#arrow)"/>
+  <text x="1008" y="476" text-anchor="middle" class="small">IPC</text>
+
+  <rect x="1042" y="428" width="276" height="214" rx="14" class="mint"/>
+  <text x="1062" y="467" class="head">Sandbox плагина</text>
+  <text x="1062" y="497" class="mono">Figma Plugin API</text>
+  <text x="1062" y="530" class="body">Открытый Design-файл</text>
+  <text x="1062" y="555" class="body">Страницы, слои, компоненты</text>
+  <text x="1062" y="580" class="body">Обход, кэш и экспорт</text>
+  <text x="1062" y="617" class="small">Правки — отдельный пункт меню</text>
+
+  <path d="M508 642v25H850v-25" fill="none" stroke="#a16b28" stroke-width="2" marker-end="url(#small)"/>
+  <text x="678" y="692" text-anchor="middle" class="small">Постоянный WebSocket · deflate/gzip для сообщений от 4 KiB</text>
+
+  <text x="42" y="751" class="label">03 / ЭКОНОМИЯ ДАННЫХ</text>
+  <rect x="42" y="777" width="1276" height="85" rx="14" fill="#fff6e5" stroke="#d9bd8c" stroke-width="1.5"/>
+  <text x="66" y="811" class="head">overview → search → snapshot → библиотеки / изображения → отчёт</text>
+  <text x="66" y="840" class="body">Компактные порции по 100 слоёв · общие определения один раз · кэш · явные границы покрытия</text>
+  <text x="42" y="899" class="small">Bridge и плагин работают локально. Прочитанные данные доступны агенту в его обычном рабочем контексте.</text>
+</svg>

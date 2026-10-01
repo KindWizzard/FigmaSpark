@@ -1,0 +1,21 @@
+{
+  "tool": "built-in image_gen",
+  "reference": "../concepts/pixel-spark-v2.png",
+  "spriteSheet": "pixel-spark-sprites-v1.png",
+  "layout": {
+    "columns": 4,
+    "rows": [
+      "offline",
+      "idle",
+      "pumping",
+      "error"
+    ]
+  },
+  "display": {
+    "canvasWidth": 120,
+    "canvasHeight": 80,
+    "spriteFrameWidth": 80,
+    "spriteFrameHeight": 80
+  },
+  "prompt": "Use case: stylized-concept\nAsset type: production pixel sprite animation sheet for a tiny Figma plugin status indicator.\nInput image 1: approved character and palette reference. Preserve the cheerful orange spark creature, its angular flame silhouette, expressive eyes, green work overalls, white gloves, chunky brown shoes and green hand pump. This is the user's selected design.\nPrimary request: create a 4-column by 4-row sprite sheet containing exactly 16 separate full-body animation frames of the SAME spark character operating the SAME pump. Genuine transparent background with alpha. No backdrop, no scene board, no text.\nPixel design: every frame has a very low-resolution 32 by 32 logical pixel canvas, enlarged exactly 8 times with nearest-neighbor so each cell is 256 by 256 output pixels and the full sheet is 1024 by 1024 pixels. Draw deliberate blocky square pixels at that grid size, a tiny game sprite readable at 32–40 pixels tall. Simplify details tastefully while keeping the approved identity. Crisp edges, no anti-aliasing, no blur, no gradients, no soft shadows.\nComposition and registration: uniform 4x4 grid, all cells exactly equal, transparent gutters, no separators. Character and pump occupy at most 28x28 logical pixels in EACH cell, with at least two logical pixels of transparent padding on every edge. All frames share the same baseline, same character scale, same pump location. Pump sits immediately to the character's right in the lower-right corner of each cell, stable body and base. The pump has a tiny outlet at its right edge. Do NOT draw the long glass pipe or any traffic balls; these will be animated from real traffic by the application.\nRow 1, frames left to right: disconnected sleepy loop. Spark sits slumped beside the pump, sleepy closed eyes; small breathing movement, drooping then rising slightly. All four frames remain quiet, readable, cute. No sleep letters or symbols.\nRow 2: connected idle loop. Spark stands beside the pump with one hand resting on the handle; cheerful smile, a blink, a small wave with the other hand, then returns. One subtle motion per frame.\nRow 3: active pumping loop. Four sequential phases of a rhythmic hand pump cycle: handle high with arms up, handle halfway down, handle low with knees squashed, handle halfway up. Same pump body/base and same character identity throughout, hands actually attached to the moving handle, feet stable. Exuberant living physical acting.\nRow 4: error loop. Spark notices a jam, wide eyes and surprised small mouth, glances towards the outlet, scratches its head, returns. Keep it friendly and comical, no distress, no panic.\nPalette: warm bright orange and amber spark, forest green overalls and pump, cream gloves, brown shoes, very dark ink outline; preserve the reference's charm.\nConstraints: exactly 16 distinct sequential sprites; no long pipe, no spheres, no labels, no letters, no numbers, no logos, no watermark, no user interface panels, no extra character, no cropping. Real transparency, not a drawn checkerboard. Keep frame registration and exact repeated silhouette proportions. This is a tiny asset, not a large illustration."
+}
