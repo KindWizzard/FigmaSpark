@@ -137,7 +137,7 @@ export function createBridge({ token, pairingCode, port = 3847, heartbeatMs = 15
         throw new SparkError('UNAUTHORIZED', 'Use the local FigmaSpark CLI or an authenticated request.', 401);
       }
       if (req.method === 'GET' && pathname === '/status') {
-        return sendJSON(res, 200, { ok: true, protocol: PROTOCOL, transport: { socket: 'persistent-websocket', format: 'json', largeMessages: 'deflate/gzip', compressionThreshold: 4096 }, sessions: [...sessions.values()].map(publicSession), stats, recent });
+        return sendJSON(res, 200, { ok: true, protocol: PROTOCOL, service: { pid: process.pid, project: PROJECT_ROOT }, transport: { socket: 'persistent-websocket', format: 'json', largeMessages: 'deflate/gzip', compressionThreshold: 4096 }, sessions: [...sessions.values()].map(publicSession), stats, recent });
       }
       if (req.method === 'GET' && pathname === '/preview') {
         return sendText(res, 'text/html', await readFile(new URL('../plugin/dist/ui.html', import.meta.url), 'utf8'));

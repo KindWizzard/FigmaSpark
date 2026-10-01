@@ -30,7 +30,7 @@ export function client(config) {
         body: body ? JSON.stringify(body) : undefined,
         signal: AbortSignal.timeout(timeoutMs + 2000)
       });
-    } catch (error) { throw new Error(`Local bridge is not reachable. Start npm start in FigmaSpark. (${error.message})`); }
+    } catch (error) { throw Object.assign(new Error(`Local bridge is not reachable. Run npm run service -- start in FigmaSpark. (${error.message})`, { cause: error }), { code: 'BRIDGE_UNAVAILABLE' }); }
     const data = await response.json();
     const jsonBytes = Number(response.headers.get('x-spark-json-bytes'));
     const wireBytes = Number(response.headers.get('content-length'));

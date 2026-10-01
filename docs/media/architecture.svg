@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1360" height="920" viewBox="0 0 1360 920" role="img" aria-labelledby="title desc">
   <title id="title">FigmaSpark: подключение и архитектура</title>
-  <desc id="desc">Клик по маскоту даёт локальную ссылку. Агент получает актуальный скилл и сессию. CLI обращается к локальному bridge по HTTP JSON; bridge использует постоянный WebSocket к UI плагина, а sandbox — Figma Plugin API. Агент начинает с обзора и читает нужные области.</desc>
+  <desc id="desc">Клик по маскоту даёт локальную ссылку. Локальный агент или адаптер Claude получает актуальный скилл и сессию. CLI обращается к локальному bridge по HTTP JSON; bridge использует постоянный WebSocket к UI плагина, а sandbox — Figma Plugin API. Агент начинает с обзора и читает нужные области.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#447763" stroke-width="2"/></marker>
     <marker id="small" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#a16b28" stroke-width="2"/></marker>
@@ -57,11 +57,11 @@
   <text x="42" y="402" class="label">02 / КАНАЛ К ЖИВОЙ FIGMA</text>
   <rect x="42" y="428" width="250" height="214" rx="14" class="card"/>
   <text x="62" y="467" class="head">Локальный ИИ-агент</text>
-  <text x="62" y="497" class="mono">figma-spark / CLI</text>
+  <text x="62" y="497" class="mono">Skill / CLI / адаптер</text>
   <text x="62" y="530" class="body">Читает требования</text>
   <text x="62" y="555" class="body">Выбирает область</text>
   <text x="62" y="580" class="body">Возвращает замечания</text>
-  <text x="62" y="617" class="small">Один клиент для серии чтений</text>
+  <text x="62" y="617" class="small">Desktop: локальный stdio-вход</text>
 
   <path d="M307 551H346" class="flow" marker-start="url(#arrow)"/>
   <text x="330" y="464" text-anchor="middle" class="small">HTTP</text>

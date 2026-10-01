@@ -33,7 +33,7 @@ export async function installSkill({ destination, editor = 'codex', update = fal
   try {
     await cp(join(project, 'skills', 'figma-spark'), stage, { recursive: true });
     const config = await readConfig().catch(() => ({ url: 'http://127.0.0.1:3847' }));
-    await writeFile(join(stage, '.figma-spark-install.json'), JSON.stringify({ product: 'FigmaSpark', version: '0.2.0', project, bridgeURL: config.url, editor }, null, 2) + '\n', { mode: 0o600 });
+    await writeFile(join(stage, '.figma-spark-install.json'), JSON.stringify({ product: 'FigmaSpark', version: '0.2.1', project, bridgeURL: config.url, editor }, null, 2) + '\n', { mode: 0o600 });
     if (existing) {
       backup = join(project, '.runtime', 'skill-backups', `${Date.now()}-${randomUUID()}`);
       await mkdir(dirname(backup), { recursive: true, mode: 0o700 });

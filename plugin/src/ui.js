@@ -1,4 +1,5 @@
 import { animatePump } from './pump.js';
+import { connectionPrompt } from './onboarding.js';
 
 const canvas = document.getElementById('pump');
 const pump = animatePump(canvas);
@@ -105,11 +106,7 @@ window.addEventListener('message', event => {
 });
 
 function instructions() {
-  return [
-    'Получи локальную инструкцию FigmaSpark:',
-    connectURL || __SPARK_BRIDGE_URL__ + '/connect',
-    'Подключись по ней к макету. Если скилл figma-spark не установлен, установи его в мой ИИ-редактор. Затем начни с обзора макета.'
-  ].join('\n');
+  return connectionPrompt({ url: connectURL || __SPARK_BRIDGE_URL__ + '/connect', online: state === 'connected', startCommand: __SPARK_SERVICE_COMMAND__ });
 }
 async function copyInstructions() {
   const text = instructions();

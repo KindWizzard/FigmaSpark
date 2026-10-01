@@ -1,6 +1,8 @@
 import { build } from 'esbuild';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { ensureConfig, DEFAULT_CONFIG } from '../bridge/config.mjs';
+import { shellQuote, PROJECT_ROOT } from '../bridge/bootstrap.mjs';
+import { join } from 'node:path';
 
 const root = new URL('../', import.meta.url);
 const connection = await ensureConfig(process.env.FIGMA_SPARK_CONFIG || DEFAULT_CONFIG, Number(process.env.FIGMA_SPARK_PORT || 3847));
@@ -24,7 +26,8 @@ const uiBundle = await build({
   loader: { '.png': 'dataurl' },
   define: {
     __SPARK_PAIRING_CODE__: JSON.stringify(connection.pairingCode),
-    __SPARK_BRIDGE_URL__: JSON.stringify(connection.url)
+    __SPARK_BRIDGE_URL__: JSON.stringify(connection.url),
+    __SPARK_SERVICE_COMMAND__: JSON.stringify([process.execPath, join(PROJECT_ROOT, 'scripts', 'service.mjs'), 'start'].map(shellQuote).join(' '))
   },
   logLevel: 'warning'
 });

@@ -5,17 +5,19 @@ description: "Read a live Figma Design file through the local FigmaSpark plugin:
 
 # FigmaSpark
 
-Use the local CLI in this skill's `scripts/spark.mjs`. It calls a persistent bridge connected to the open FigmaSpark native plugin. The plugin must remain open in the target Design file. No Figma personal access token or MCP setup is needed.
+For a local editor, use the CLI in this skill's `scripts/spark.mjs`. It calls a persistent bridge connected to the open FigmaSpark native plugin. The plugin must remain open in the target Design file. No Figma personal access token or standard Figma MCP is needed.
+
+In Claude Desktop Chat with the optional local FigmaSpark adapter, use `figma_spark_connect` with the copied URL instead of shell commands. It returns this skill and the selected session. Use `figma_spark_read` with `command`, `sessionId` and the same command-specific `params`; use `figma_spark_image` for selected node images. The adapter is read-only and exposes no shell or patch tool. The workflow and coverage rules below still apply.
 
 ## Connect and identify the design
 
-Fetch the local `/connect` URL supplied by the user (the mascot copies it). If no URL was supplied, fetch `http://127.0.0.1:3847/connect`. It serves current connection instructions; `?format=json` gives the CLI, project/config paths, current session ID when selected, capabilities and installer. Retrieve the hosted `SKILL.md` once per task when the running service may be newer than this installed skill. Load the API reference only for commands that need it.
+Fetch the local `/connect` URL supplied by the user (the mascot copies it) through the local terminal, for example `curl --fail --silent --show-error --max-time 5 'LOCAL_URL'`. Do not use cloud WebFetch for localhost. Claude Code's Desktop Code mode has local tools; ordinary claude.ai Chat does not. If no URL was supplied, fetch `http://127.0.0.1:3847/connect`. It serves current connection instructions; `?format=json` gives the CLI, project/config paths, current session ID when selected, capabilities and installer. Retrieve the hosted `SKILL.md` once per task when the running service may be newer than this installed skill. Load the API reference only for commands that need it.
 
 Run `node <skill-directory>/scripts/spark.mjs connect <LOCAL_URL>` to authenticate using the local config and confirm the selected file. The URL carries only a session ID, not credentials. CLI commands can use `--connect <LOCAL_URL>` to keep the same scope and configuration. For several reads in one process, import `client` from the CLI path returned by discovery, load the local config once, reuse the client and issue scoped calls with the same session ID. This avoids repeatedly starting a CLI process.
 
 If the skill is missing and installation is authorized, use the installer advertised by `/connect`: `node <project>/scripts/install-skill.mjs --editor codex|cursor|claude`, or `--dest <editor-skill-directory>/figma-spark`. It copies the skill into the local editor; it does not edit editor settings. An existing skill requires explicit `--update`, which first saves a backup. If installation was not authorized, propose it and use the fetched instructions for this task. Local directories support local agents; installing a skill in a cloud editor does not make the user's localhost reachable there.
 
-If disconnected, start `npm start` in the discovered FigmaSpark project folder, then open **Plugins → Development → FigmaSpark → Подключиться** in the target file. A freshly configured build pairs automatically. If pairing fails after recreating the config, rebuild with `npm run build` and reopen the plugin. Explain the actual missing prerequisite; do not substitute another file or claim a mock connection is live.
+If disconnected, start `npm run service -- start` in the discovered FigmaSpark project folder, then open **Plugins → Development → FigmaSpark → Подключиться** in the target file. A freshly configured build pairs automatically. If pairing fails after recreating the config, rebuild with `npm run build` and reopen the plugin. Explain the actual missing prerequisite; do not substitute another file or claim a mock connection is live.
 
 When several files are connected, choose the file that matches the user's URL/name and use `--session ID` for every subsequent call. If the match is ambiguous, ask the user to choose. `fileKey` can be unavailable; use the session's file name and page, and do not invent a Figma URL.
 

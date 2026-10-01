@@ -11,4 +11,4 @@ if ! command -v node >/dev/null; then
   read -k 1
   exit 1
 fi
-exec node bridge/server.mjs
+exec node scripts/service.mjs start
