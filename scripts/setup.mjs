@@ -28,4 +28,4 @@ if (current) {
 }
 await writeFile(path, JSON.stringify(manifest, null, 2) + '\n');
 await import('./build.mjs');
-console.log('Ready: import plugin/manifest.json in Figma, then npm start.');
+console.log('Ready: import plugin/manifest.json in Figma, then npm run service -- start.');
