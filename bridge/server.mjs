@@ -46,6 +46,7 @@ export function createBridge({ token, pairingCode, port = 3847, heartbeatMs = 15
     return {
       id: session.id, clientId: session.clientId, context: session.context,
       connectedAt: session.connectedAt, lastSeenAt: session.lastSeenAt,
+      visible: session.visible ?? null, visibleChangedAt: session.visibleChangedAt ?? null,
       pending: [...pending.values()].filter(p => p.sessionId === session.id).length
     };
   }
@@ -214,7 +215,12 @@ export function createBridge({ token, pairingCode, port = 3847, heartbeatMs = 15
         return;
       }
       if (message.type === 'event') {
-        if (message.event === 'context') session.context = message.data;
+        if (message.event === 'visibility') {
+          if (typeof message.data?.visible === 'boolean' && message.data.visible !== session.visible) {
+            session.visible = message.data.visible;
+            session.visibleChangedAt = new Date().toISOString();
+          }
+        } else if (message.event === 'context') session.context = message.data;
         else if (['selection', 'document', 'page', 'permission'].includes(message.event)) {
           if (message.data?.page) session.context.page = message.data.page;
           if (message.data?.selection) session.context.selection = message.data.selection;

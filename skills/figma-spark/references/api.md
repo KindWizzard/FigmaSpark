@@ -1,11 +1,11 @@
 # Commands and rules
 
-All examples use `node <skill-directory>/scripts/spark.mjs`. Common flags: `--connect LOCAL_URL`, `--session ID`, `--params '{...}'`, `--input FILE`, `--out FILE`, `--timeout MS` (100–120000).
+All examples use `node <skill-directory>/scripts/spark.mjs`. Common flags: `--connect LOCAL_URL`, `--session ID`, `--params '{...}'`, `--input FILE`, `--out FILE`, `--timeout MS` (100–120000), `--bring-to-front` (on a read: if the page does not load because the file is hidden, open the file tab in Figma Desktop and retry once).
 
 | Command | Behavior |
 | --- | --- |
 | connect LOCAL_URL | Fetch the live `/connect` manifest, authenticate from its local config and confirm the selected session |
-| status | Connected sessions, context, recent measured latency |
+| status | Connected sessions, context, `visible` (the file is shown in Figma Desktop; `null` from older plugins), recent measured latency |
 | pair | Local plugin connection code; do not include it in reports |
 | overview | Page index + bounded screen/section/group outline and text/component samples; `--page ID`, `--nodes ID`, `--sample-nodes N` |
 | context / pages / selection | Current file/page/selection or page index |
@@ -19,7 +19,7 @@ All examples use `node <skill-directory>/scripts/spark.mjs`. Common flags: `--co
 | audit --input RULES.json | Deterministic checks; returns findings and stores the latest report |
 | report --input REPORT.json | Store an agent's findings without changing the canvas; present findings in chat or saved JSON |
 | last-report | Return the stored report; `--out FILE` saves it |
-| focus --nodes ID,ID / --page ID | Select and zoom to nodes, or open the specified page in the editor |
+| focus --nodes ID,ID / --page ID | Select and zoom to nodes, or open the specified page in the editor; a hidden file tab is first opened in Figma Desktop |
 | patch --input PATCH.json | Bounded edits; disabled by default, requires plugin permission |
 | bench --limit 10 | Measure sequential ping round trips; no MCP comparison |
 
@@ -31,7 +31,7 @@ Libraries resolves up to 30 instances by default, at most 100. Local metadata is
 
 Reads are cached by scope/options and invalidated on tracked page/style changes and patches. Use `--refresh` to bypass. Responses include `durationMs`, `executionMs`, `cache` where applicable, and `transfer` (HTTP JSON and compressed wire bytes). Large JSON uses negotiated WebSocket deflate and HTTP gzip above 4096 bytes; the logical payload remains JSON. Warm/cold timings and compression do not measure MCP or model latency.
 
-Page IDs are resolved through the page index, and already loaded pages avoid another network round trip. If an unloaded page cannot load, `PAGE_UNAVAILABLE` preserves Figma's actual error. `focus --page ID` opens a task page in the editor as a loading fallback; retry the requested read, or report missing evidence if Figma is still unavailable. It changes the user's active page, not design content.
+Page IDs are resolved through the page index, and already loaded pages avoid another network round trip. Figma Desktop loads an unloaded page for a plugin only while the file is visible: its tab is active and the Figma window is not hidden behind another app. In a hidden file Figma gives up after ten seconds with "Unable to establish connection to Figma … check your internet connection"; that is not a network fault, and `PAGE_UNAVAILABLE` keeps Figma's text with a hint. `focus --page ID` (or a read with `--bring-to-front`) opens the file tab on that page through a `figma://` link — the file key comes from Figma Desktop's list of open tabs, matched by file name — and waits until the editor shows it; then retry the read. Loaded pages stay readable after the tab goes back to the background. If macOS keeps another app in front, the link switches the tab but the window stays hidden: ask the user to bring Figma forward, or report missing evidence. Both commands change the user's active tab and page, not design content.
 
 ## Rules
 

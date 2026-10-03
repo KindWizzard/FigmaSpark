@@ -189,3 +189,19 @@ test('discovery loads local credentials and scopes a read to the session in the 
   const stale = await (await fetch(message.connectURL + '&format=json')).json();
   assert.equal(stale.sessionAvailable, false);
 });
+
+test('status shows whether the connected file is visible in Figma Desktop', async () => {
+  const { call, plugin } = await setup();
+  const { ws, sessionId } = await plugin('visibility-client');
+  const visibility = async () => (await call('/status')).data.sessions.find(session => session.id === sessionId);
+  assert.equal((await visibility()).visible, null);
+  ws.send(JSON.stringify({ type: 'event', event: 'visibility', data: { visible: false } }));
+  let session;
+  for (let i = 0; i < 50 && (session = await visibility()).visible !== false; i++) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(session.visible, false);
+  assert.ok(session.visibleChangedAt);
+  ws.send(JSON.stringify({ type: 'event', event: 'visibility', data: { visible: 'yes' } }));
+  ws.send(JSON.stringify({ type: 'event', event: 'visibility', data: { visible: true } }));
+  for (let i = 0; i < 50 && (session = await visibility()).visible !== true; i++) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(session.visible, true);
+});

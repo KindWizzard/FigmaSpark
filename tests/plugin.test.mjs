@@ -109,3 +109,21 @@ test('an unloaded page reports the actual Figma connection failure without claim
   assert.equal(response.error.code, 'PAGE_UNAVAILABLE');
   assert.ok(response.error.message.includes('Network is offline'));
 });
+
+test('a page of a background file tab reports how to load it', async () => {
+  const timeout = 'Unable to establish connection to Figma after 10 seconds. Please check your internet connection.';
+  const unloaded = { id: '9:1', name: 'Unloaded', type: 'PAGE', on() {}, off() {}, get children() { throw new Error('Page is not loaded'); }, async loadAsync() { throw new Error(timeout); } };
+  const plugin = harness([fixtureNode('1:1')], { extraPages: [unloaded] });
+  plugin.figma.setCurrentPageAsync = async () => { throw new Error(timeout); };
+  const read = await plugin.request('overview', { pageId: '9:1' });
+  assert.equal(read.error.code, 'PAGE_UNAVAILABLE');
+  assert.match(read.error.message, /Unloaded/);
+  assert.match(read.error.message, /file tab is in front and its window is visible: run focus --page 9:1/);
+  const focus = await plugin.request('focus', { pageId: '9:1' });
+  assert.equal(focus.error.code, 'PAGE_UNAVAILABLE');
+  const other = { id: '9:2', name: 'Broken', type: 'PAGE', on() {}, off() {}, get children() { throw new Error('Page is not loaded'); }, async loadAsync() { throw new Error('Page was deleted'); } };
+  const plain = harness([fixtureNode('1:1')], { extraPages: [other] });
+  const failure = await plain.request('overview', { pageId: '9:2' });
+  assert.equal(failure.error.code, 'PAGE_UNAVAILABLE');
+  assert.doesNotMatch(failure.error.message, /file tab is in front/);
+});

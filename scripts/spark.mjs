@@ -3,10 +3,11 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readConfig } from '../bridge/config.mjs';
+import { BACKGROUND_LOAD, bringToFront, sessionVisibility } from './desktop.mjs';
 
 export function parseArgs(args) {
   const options = {}, positionals = [];
-  const booleans = new Set(['include-hidden', 'prototype', 'css', 'no-segments', 'no-components', 'refresh', 'segments', 'components', 'help']);
+  const booleans = new Set(['include-hidden', 'prototype', 'css', 'no-segments', 'no-components', 'refresh', 'segments', 'components', 'bring-to-front', 'help']);
   const known = new Set([...booleans, 'connect', 'session', 'input', 'out', 'params', 'nodes', 'page', 'scope', 'depth', 'max-nodes', 'sample-nodes', 'detail', 'limit', 'offset', 'revision', 'format', 'max-dimension', 'scale', 'types', 'match', 'timeout']);
   for (let i = 0; i < args.length; i++) {
     const argument = args[i];
@@ -134,13 +135,14 @@ Commands:
   audit      --input RULES.json [--out review.json]
   report     --input REPORT.json (store findings; present in chat or a saved file)
   last-report [--out FILE]
-  focus      [--nodes ID,ID | --page ID]
+  focus      [--nodes ID,ID | --page ID] (brings a background file tab to front when needed)
   patch      --input PATCH.json (requires the native allow-edits entry in Figma)
   bench      [--limit 10]
 
 Common: --connect LOCAL_URL, --session ID, --params JSON, --input JSON, --timeout MS,
         --depth N, --max-nodes N, --limit N, --offset N, --revision N,
-        --include-hidden, --prototype, --segments, --components, --refresh
+        --include-hidden, --prototype, --segments, --components, --refresh,
+        --bring-to-front (load a page of a background file tab by opening it in Figma Desktop)
 Start with overview, then search and read only relevant frames.
 The plugin stays open in the Design file being reviewed.`);
     return;
@@ -159,6 +161,22 @@ The plugin stays open in the Design file being reviewed.`);
   const params = await parameters(options, command, argument);
   const timeout = options.timeout ? Number(options.timeout) : 20000;
   const session = options.session || (connection?.manifest.sessionAvailable ? connection.manifest.sessionId : null) || process.env.FIGMA_SPARK_SESSION;
+  const front = (target, sessionId) => bringToFront(api, sessionId, target, { timeoutMs: Math.max(timeout, 30000) });
+  // Pages of a background file tab do not load; open the tab in Figma Desktop only when asked to.
+  async function call(name, callParams, sessionId = session) {
+    try { return await api.rpc(name, callParams, sessionId, timeout); }
+    catch (error) {
+      if (!BACKGROUND_LOAD.test(error.message)) throw error;
+      const target = { pageId: callParams.pageId, nodeId: callParams.nodeIds?.[0] };
+      if (!options['bring-to-front'] || (!target.pageId && !target.nodeId)) {
+        if (!/file tab is in front/.test(error.message)) error.message += ' Figma Desktop loads pages for plugins only while the file tab is in front and its window is visible: run focus --page PAGE_ID or repeat with --bring-to-front.';
+        if (await sessionVisibility(api, sessionId) === false) error.message += ' The plugin reports that this file is hidden right now.';
+        throw error;
+      }
+      const moved = await front(target, sessionId);
+      return { ...await api.rpc(name, callParams, sessionId, timeout), broughtToFront: { url: moved.url, page: moved.page } };
+    }
+  }
   if (command === 'bench') {
     const count = params.limit ?? 10;
     if (!Number.isInteger(count) || count < 1 || count > 50) throw new Error('Benchmark limit must be 1–50.');
@@ -172,12 +190,12 @@ The plugin stays open in the Design file being reviewed.`);
   if (command === 'capture') {
     const directory = resolve(options.out ?? 'output/capture');
     const captureParams = { limit: 500, ...params };
-    const first = await api.rpc('snapshot', captureParams, session, timeout);
+    const first = await call('snapshot', captureParams);
     const snapshot = first.result;
     if (snapshot.coverage.changedDuringRead) throw new Error('Design changed while capturing. Repeat the capture.');
     let offset = snapshot.nextOffset;
     while (offset !== null) {
-      const page = await api.rpc('snapshot', { ...captureParams, offset, revision: snapshot.revision }, first.sessionId, timeout);
+      const page = await call('snapshot', { ...captureParams, offset, revision: snapshot.revision }, first.sessionId);
       if (page.result.coverage.changedDuringRead) throw new Error('Design changed while capturing. Repeat the capture.');
       snapshot.nodes.push(...page.result.nodes);
       offset = page.result.nextOffset;
@@ -189,7 +207,7 @@ The plugin stays open in the Design file being reviewed.`);
     const roots = snapshot.rootIds.filter(id => snapshot.nodes.find(node => node.id === id)?.type !== 'PAGE');
     let images = [];
     for (let index = 0; index < roots.length; index += 4) {
-      const exports = await api.rpc('export', { nodeIds: roots.slice(index, index + 4), maxDimension: params.maxDimension ?? 1600 }, first.sessionId, timeout);
+      const exports = await call('export', { nodeIds: roots.slice(index, index + 4), maxDimension: params.maxDimension ?? 1600 }, first.sessionId);
       const saved = await saveExports(join(directory, 'images'), exports);
       images.push(...saved.result.images);
     }
@@ -197,7 +215,25 @@ The plugin stays open in the Design file being reviewed.`);
     await saveJSON(join(directory, 'capture.json'), manifest);
     console.log(JSON.stringify(manifest, null, 2)); return;
   }
-  let result = await api.rpc(command, params, session, timeout);
+  let result;
+  if (command === 'focus') {
+    // focus shows a page to the user, so a hidden file tab is opened in Figma Desktop first; a plugin
+    // older than visibility reporting finds out only from Figma's ten-second load timeout.
+    const target = { pageId: params.nodeIds?.length ? undefined : params.pageId, nodeId: params.nodeIds?.[0] };
+    const showInDesktop = async () => {
+      const moved = await front(target, session);
+      result = params.nodeIds?.length ? await api.rpc('focus', params, session, timeout) : { ok: true, sessionId: session ?? null, result: { page: moved.page, focused: [] } };
+      result.broughtToFront = { url: moved.url, page: moved.page };
+    };
+    if ((target.pageId || target.nodeId) && await sessionVisibility(api, session) === false) await showInDesktop();
+    else {
+      try { result = await api.rpc('focus', params, session, timeout); }
+      catch (error) {
+        if (!BACKGROUND_LOAD.test(error.message) || (!target.pageId && !target.nodeId)) throw error;
+        await showInDesktop();
+      }
+    }
+  } else result = await call(command, params);
   if (command === 'export') result = await saveExports(options.out ?? 'output/exports', result);
   else if (options.out) {
     const path = await saveJSON(options.out, result);

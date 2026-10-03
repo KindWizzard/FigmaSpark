@@ -38,13 +38,27 @@ function subscribePage(page: PageNode) {
   subscribedPages.add(page.id);
 }
 
+// While the document is hidden (a background tab or a window behind another app), Figma Desktop does not
+// load pages for plugins and reports a connection timeout after ten seconds.
+function pageUnavailable(page: PageNode, error: unknown) {
+  const reason = (error as Error)?.message ?? String(error);
+  const hint = /Unable to establish connection to Figma/i.test(reason) ? ` Figma Desktop loads pages for plugins only while the file tab is in front and its window is visible: run focus --page ${page.id} or repeat with --bring-to-front.` : '';
+  return new CommandError('PAGE_UNAVAILABLE', `Figma could not load page "${page.name}". ${reason}${hint}`);
+}
+
+async function showPage(page: PageNode) {
+  if (figma.currentPage.id === page.id) return;
+  try { await figma.setCurrentPageAsync(page); }
+  catch (error) { throw pageUnavailable(page, error); }
+}
+
 async function readPage(page: PageNode) {
   if (subscribedPages.has(page.id)) return;
   // Already loaded pages are readable without a new Figma network round trip.
   try { void page.children.length; }
   catch {
     try { await page.loadAsync(); }
-    catch (error) { throw new CommandError('PAGE_UNAVAILABLE', `Figma could not load page "${page.name}". ${(error as Error)?.message ?? String(error)}`); }
+    catch (error) { throw pageUnavailable(page, error); }
   }
   subscribePage(page);
 }
@@ -193,7 +207,7 @@ async function focus(params: Params) {
   if (params.pageId && params.nodeIds === undefined) {
     const page = figma.root.children.find(page => page.id === params.pageId);
     if (!page) throw new CommandError('PAGE_NOT_FOUND', 'Page not found.');
-    if (figma.currentPage.id !== page.id) await figma.setCurrentPageAsync(page);
+    await showPage(page);
     subscribePage(page);
     return { page: { id: page.id, name: page.name }, focused: [] };
   }
@@ -204,7 +218,7 @@ async function focus(params: Params) {
   while (page && page.type !== 'PAGE') page = page.parent;
   if (!page || page.type !== 'PAGE') throw new CommandError('PAGE_NOT_FOUND', 'Cannot find the parent page.');
   if (nodes.some(node => { let p: BaseNode | null = node; while (p && p.type !== 'PAGE') p = p.parent; return p?.id !== page?.id; })) throw new CommandError('MIXED_PAGES', 'Focus nodes from the same page.');
-  if (figma.currentPage.id !== page.id) await figma.setCurrentPageAsync(page);
+  await showPage(page);
   figma.currentPage.selection = nodes;
   figma.viewport.scrollAndZoomIntoView(nodes);
   return { focused: nodes.map(nodeSummary) };

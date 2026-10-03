@@ -31,6 +31,12 @@ function measure(bytes, direction) {
 }
 setInterval(updateLoad, 500);
 
+// Figma Desktop does not load pages for a hidden document: a background tab or a window behind another app.
+function reportVisibility() {
+  if (socket?.readyState === WebSocket.OPEN && sessionId) socket.send(JSON.stringify({ type: 'event', event: 'visibility', data: { visible: document.visibilityState === 'visible' } }));
+}
+document.addEventListener('visibilitychange', reportVisibility);
+
 function connect() {
   clearTimeout(reconnectTimer);
   if (!code) { setState('offline'); return; }
@@ -56,6 +62,7 @@ function connect() {
       reconnectAttempt = 0;
       setState('connected');
       toPlugin({ type: 'settings', settings: { code } });
+      reportVisibility();
     } else if (message.type === 'request') {
       pending.set(message.id, performance.now());
       measure(encoder.encode(event.data).length, 'in');
