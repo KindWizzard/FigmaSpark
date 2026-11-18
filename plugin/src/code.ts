@@ -1,4 +1,5 @@
 import { Params, CommandError, integer, plain, equal, nodeSummary, serializeNode, auditNodes, base64, cooperativeYield } from './document';
+import { PATCH_PROPERTIES, cleanChange, snapshotValue, checkStyles, fontsFor, assign, restore, runBuild } from './edit';
 import { ReadCache, pageIndex, buildOverview, componentCatalog, screenFor, textExcerpt, compactSummary, layerText } from './catalog';
 
 figma.showUI(__html__, { width: 120, height: 80, themeColors: true, title: '' });
@@ -228,11 +229,10 @@ async function patch(params: Params, isCancelled: () => boolean) {
   if (!writeEnabled) throw new CommandError('WRITE_DISABLED', 'Restart FigmaSpark using its native menu command: connect and allow edits.');
   reads.clear();
   if (!Array.isArray(params.operations) || !params.operations.length || params.operations.length > 50) throw new CommandError('INVALID_PATCH', 'Provide 1–50 operations.');
-  const allowed = new Set(['name', 'characters', 'visible', 'opacity', 'fills', 'x', 'y', 'width', 'height', 'fontSize', 'itemSpacing', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']);
   const staged: { node: SceneNode; changes: Params; before: Params; expected: Params }[] = [];
   function verifyExpected(node: SceneNode, expected: Params) {
     for (const [key, value] of Object.entries(expected)) {
-      if (!allowed.has(key) || !(key in node)) throw new CommandError('INVALID_PATCH', `Unsupported expected property: ${key}.`);
+      if (!PATCH_PROPERTIES.has(key) || key === 'textReplace' || !(key in node)) throw new CommandError('INVALID_PATCH', `Unsupported expected property: ${key}.`);
       if (!equal(plain((node as any)[key]), value)) throw new CommandError('STALE_PATCH', `${key} on ${node.name} changed since it was inspected.`);
     }
   }
@@ -247,27 +247,16 @@ async function patch(params: Params, isCancelled: () => boolean) {
     const source = node as any;
     verifyExpected(node, op.expected ?? {});
     if (('width' in op.changes || 'height' in op.changes) && typeof source.resize !== 'function') throw new CommandError('INVALID_PATCH', 'This node cannot be resized.');
+    const changes: Params = {};
     const before: Params = {};
     for (const [key, value] of Object.entries(op.changes)) {
-      if (!allowed.has(key) || !(key in source)) throw new CommandError('INVALID_PATCH', `Unsupported property ${key} on ${node.name}.`);
-      if (key === 'name' || key === 'characters') {
-        if (typeof value !== 'string' || value.length > 100000) throw new CommandError('INVALID_PATCH', `${key} must be a bounded string.`);
-      } else if (key === 'visible') {
-        if (typeof value !== 'boolean') throw new CommandError('INVALID_PATCH', 'visible must be boolean.');
-      } else if (key === 'fills') {
-        if (!Array.isArray(value) || value.length > 10 || value.some(paint => paint.type !== 'SOLID' || !paint.color || ['r', 'g', 'b'].some(channel => typeof paint.color[channel] !== 'number' || paint.color[channel] < 0 || paint.color[channel] > 1) || (paint.opacity !== undefined && (typeof paint.opacity !== 'number' || paint.opacity < 0 || paint.opacity > 1)))) throw new CommandError('INVALID_PATCH', 'fills supports up to ten valid SOLID paints.');
-      } else {
-        if (typeof value !== 'number' || !Number.isFinite(value) || value < (['x', 'y'].includes(key) ? -100000 : 0) || value > 100000 || (['width', 'height', 'fontSize'].includes(key) && value <= 0) || (key === 'opacity' && value > 1)) throw new CommandError('INVALID_PATCH', `Invalid number for ${key}.`);
-      }
-      before[key] = source[key];
+      changes[key] = cleanChange(key, value, node);
+      before[key] = snapshotValue(node, key);
     }
-    if (node.type === 'TEXT' && ('characters' in op.changes || 'fontSize' in op.changes || 'fills' in op.changes)) {
-      const fonts = node.getRangeAllFontNames(0, node.characters.length);
-      if (!fonts.length && node.fontName !== figma.mixed) fonts.push(node.fontName);
-      await Promise.all(fonts.map(font => figma.loadFontAsync(font)));
-    }
-    if ('width' in op.changes || 'height' in op.changes) { before.width = node.width; before.height = node.height; }
-    staged.push({ node, changes: op.changes, before, expected: op.expected ?? {} });
+    await checkStyles(changes);
+    await fontsFor(node, changes);
+    if ('width' in changes || 'height' in changes) { before.width = node.width; before.height = node.height; }
+    staged.push({ node, changes, before, expected: op.expected ?? {} });
   }
   // Fonts may have loaded asynchronously while the user edited a layer.
   for (const item of staged) verifyExpected(item.node, item.expected);
@@ -277,14 +266,18 @@ async function patch(params: Params, isCancelled: () => boolean) {
       if (!writeEnabled || isCancelled()) throw new CommandError('CANCELLED', 'Editing was disabled or the request was cancelled.');
       applied.push(item);
       const source = item.node as any;
-      for (const [key, value] of Object.entries(item.changes)) if (key !== 'width' && key !== 'height') source[key] = value;
+      // Fonts change first, so text written afterwards takes the new font; absolute positioning
+      // comes before x and y, which auto layout would otherwise override.
+      const first = ['fontName', 'rangeFontName', 'layoutPositioning'];
+      const keys = Object.keys(item.changes).sort((a, b) => Number(!first.includes(a)) - Number(!first.includes(b)));
+      for (const key of keys) if (key !== 'width' && key !== 'height') await assign(item.node, key, item.changes[key]);
       if ('width' in item.changes || 'height' in item.changes) source.resize(item.changes.width ?? item.node.width, item.changes.height ?? item.node.height);
     }
   } catch (error) {
     let rollbackFailed = false;
     for (const item of [...applied].reverse()) try {
         const source = item.node as any;
-        for (const [key, value] of Object.entries(item.before)) if (key !== 'width' && key !== 'height') source[key] = value;
+        for (const [key, value] of Object.entries(item.before)) if (key !== 'width' && key !== 'height') await restore(item.node, key, value);
         if ('width' in item.before || 'height' in item.before) source.resize(item.before.width ?? item.node.width, item.before.height ?? item.node.height);
       } catch { rollbackFailed = true; }
     if (rollbackFailed) throw new CommandError('ROLLBACK_FAILED', 'Some changes could not be restored. Use Figma Undo, then inspect the affected nodes.');
@@ -293,6 +286,15 @@ async function patch(params: Params, isCancelled: () => boolean) {
   figma.commitUndo();
   onNodeChange();
   return { applied: staged.map(item => ({ nodeId: item.node.id, before: plain(item.before), after: plain(item.changes) })), undo: 'Use Figma Undo to revert this patch.' };
+}
+
+async function build(params: Params, isCancelled: () => boolean) {
+  if (!writeEnabled) throw new CommandError('WRITE_DISABLED', 'Restart FigmaSpark using its native menu command: connect and allow edits.');
+  reads.clear();
+  const result = await runBuild(params, isCancelled, () => writeEnabled);
+  figma.commitUndo();
+  onNodeChange();
+  return { ...result, undo: 'Use Figma Undo to revert this build.' };
 }
 
 async function handle(command: string, params: Params, isCancelled: () => boolean): Promise<any> {
@@ -310,6 +312,7 @@ async function handle(command: string, params: Params, isCancelled: () => boolea
     case 'variables': return variables(params);
     case 'focus': return focus(params);
     case 'patch': return patch(params, isCancelled);
+    case 'build': return build(params, isCancelled);
     case 'search': {
       if (typeof params.query !== 'string' || !params.query.trim() || params.query.length > 500) throw new CommandError('INVALID_QUERY', 'Provide a non-empty query, up to 500 characters.');
       if (params.match !== undefined && !['contains', 'exact'].includes(params.match)) throw new CommandError('INVALID_PARAMS', 'match must be contains or exact.');

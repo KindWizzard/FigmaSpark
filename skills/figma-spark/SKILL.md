@@ -43,7 +43,7 @@ If Figma returns `PAGE_UNAVAILABLE` for an unloaded page, the usual cause is a h
 - For visual, semantic or interaction findings, compare the image/structure with the source. Return findings in chat and save evidence with `report --input <report.json> --out <receipt.json>` when useful. `last-report` retrieves the stored report; the mascot UI has no report panel. Tie each finding to a documentation clause and node IDs. Mark unsupported, unavailable, or unrepresented states `unknown` and explain the missing evidence.
 - Use `focus --nodes ID` to locate a layer when helpful. Report only demonstrated mismatches and clearly separate verified matches from questions requiring product judgment.
 
-Keep design review read-only. An explicit request to fix a design authorizes appropriate edits; `patch` additionally requires starting the plugin through its native **Подключиться и разрешить правки** menu entry. Reopening via **Подключиться** restores read-only mode. Use inspected values in `expected` to avoid overwriting a changed layer, then recapture affected nodes and verify the result. The plugin never exposes arbitrary code execution.
+Keep design review read-only. An explicit request to fix a design authorizes appropriate edits: `patch` changes properties of existing layers, `build` adds, swaps, moves and removes layers (SVG import, clones, instances, components). Both additionally require starting the plugin through its native **Подключиться и разрешить правки** menu entry. Reopening via **Подключиться** restores read-only mode. Use inspected values in `expected` to avoid overwriting a changed layer, then recapture affected nodes and verify the result. The plugin never exposes arbitrary code execution.
 
 ## Useful commands
 

@@ -137,6 +137,8 @@ Commands:
   last-report [--out FILE]
   focus      [--nodes ID,ID | --page ID] (brings a background file tab to front when needed)
   patch      --input PATCH.json (requires the native allow-edits entry in Figma)
+  build      --input BUILD.json (structural steps: createSvg, clone, createInstance, componentize,
+             swap, move, rescale, remove; same permission as patch)
   bench      [--limit 10]
 
 Common: --connect LOCAL_URL, --session ID, --params JSON, --input JSON, --timeout MS,

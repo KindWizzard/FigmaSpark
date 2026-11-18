@@ -3,7 +3,7 @@ export const READ_COMMANDS = new Set([
   'ping', 'context', 'pages', 'overview', 'libraries', 'last-report', 'selection', 'snapshot', 'search', 'export', 'styles', 'variables', 'inspect', 'audit'
 ]);
 export const UI_COMMANDS = new Set(['focus', 'report']);
-export const WRITE_COMMANDS = new Set(['patch']);
+export const WRITE_COMMANDS = new Set(['patch', 'build']);
 export const COMMANDS = new Set([...READ_COMMANDS, ...UI_COMMANDS, ...WRITE_COMMANDS]);
 
 export class SparkError extends Error {

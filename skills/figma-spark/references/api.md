@@ -95,4 +95,40 @@ Statuses: `pass`, `fail`, `unknown`. Reports are stored in memory until the plug
 }
 ```
 
-At most 50 nodes; one operation per node. Start the plugin using **Подключиться и разрешить правки** to enable patch; the standard **Подключиться** entry is read-only. Allowed properties: name, characters, visible, opacity, SOLID fills, x, y, width, height, fontSize, itemSpacing and padding. No deletion, arbitrary evaluation, or remote credentials. Fonts load before text changes. Figma Undo reverts a patch. Every expected value is checked before changing layers, including after asynchronous font loading; recapture after modifying.
+At most 50 nodes; one operation per node. Start the plugin using **Подключиться и разрешить правки** to enable patch and build; the standard **Подключиться** entry is read-only. Allowed properties:
+
+- geometry and layout: x, y, width, height, rotation, cornerRadius, constraints `{horizontal, vertical}` (MIN, MAX, CENTER, STRETCH, SCALE), itemSpacing, padding, layoutSizingHorizontal/Vertical, layoutPositioning (AUTO or ABSOLUTE, applied before x and y), clipsContent;
+- appearance: visible, opacity, blendMode, isMask, locked, fills and strokes (SOLID or GRADIENT_LINEAR/RADIAL/ANGULAR/DIAMOND with `gradientTransform` and 2–16 `gradientStops`; no image paints), strokeWeight, effects (DROP_SHADOW, INNER_SHADOW, LAYER_BLUR, BACKGROUND_BLUR);
+- styles: fillStyleId, strokeStyleId, textStyleId, effectStyleId (an existing style id, or `""` to detach);
+- text: characters, fontSize, fontName `{family, style}`, letterSpacing, lineHeight, textAlignHorizontal/Vertical, textAutoResize, textCase, and `textReplace: [{from, to}]`, which replaces text in place so every run keeps its own style, and `rangeFontName: [{start, end, family, style}]` (a font this change replaces everywhere it is used need not be available);
+- name, and description on a component.
+
+Paints and effects are rebuilt from known keys before Figma sees them. No arbitrary evaluation or remote credentials. Fonts load before text changes. Figma Undo reverts a patch. Every expected value is checked before changing layers, including after asynchronous font loading; recapture after modifying.
+
+## Build
+
+```json
+{
+  "steps": [
+    { "action": "createSvg", "parentId": "12:1", "svg": "<svg …>…</svg>", "name": "Mark", "x": 0, "y": 0, "fitWidth": 400, "constraints": { "horizontal": "SCALE", "vertical": "SCALE" }, "as": "mark" },
+    { "action": "componentize", "nodeId": "$mark", "description": "Master mark", "as": "logo" },
+    { "action": "swap", "nodeId": "12:40", "componentId": "$logo", "expectedComponentId": "5:8" },
+    { "action": "remove", "nodeId": "12:41", "expected": { "name": "Old mark", "type": "VECTOR" } }
+  ]
+}
+```
+
+`build --input BUILD.json` runs 1–50 structural steps in order, with the same permission as patch. A step may name its result with `as` and later steps refer to it as `$name`; the response returns every created id under `refs`.
+
+| Action | Fields | Notes |
+| --- | --- | --- |
+| createSvg | parentId, svg, index?, x?, y?, width?, height?, fitWidth?, fitHeight?, name?, constraints? | `figma.createNodeFromSvg`; scripts, event handlers, foreignObject and external references are refused; `constraints` applies to every created layer |
+| clone | nodeId, parentId?, index?, x?, y?, … | without parentId the copy lands right above the source |
+| createInstance | componentId, parentId, index?, x?, y?, … | |
+| componentize | nodeId, description? | only a layer created in the same build |
+| swap | nodeId (instance), componentId, expectedComponentId? | overrides follow Figma's swap rules (matching layer names keep them) |
+| move | nodeId, parentId, index?, x?, y? | reparent |
+| rescale | nodeId, fitWidth or fitHeight, x?, y? | proportional scale, like the Scale tool |
+| remove | nodeId, expected `{name, type}` | current page only; never pages, sections, components or layers that contain one; runs after every other step has succeeded |
+
+`width`/`height` resize the layer; `fitWidth`/`fitHeight` scale it with its children. If a step fails, created layers are removed and swaps and moves are reverted; Figma Undo reverts a completed build as one step.

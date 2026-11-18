@@ -127,3 +127,100 @@ test('a page of a background file tab reports how to load it', async () => {
   assert.equal(failure.error.code, 'PAGE_UNAVAILABLE');
   assert.doesNotMatch(failure.error.message, /file tab is in front/);
 });
+
+
+function container(id, extra = {}) {
+  const node = fixtureNode(id, { type: 'FRAME', children: [], ...extra });
+  node.appendChild = child => { child.parent?.children && child.parent.children.splice(child.parent.children.indexOf(child), 1); node.children.push(child); child.parent = node; };
+  node.insertChild = (index, child) => { child.parent?.children && child.parent.children.splice(child.parent.children.indexOf(child), 1); node.children.splice(index, 0, child); child.parent = node; };
+  node.findAll = () => node.children;
+  return node;
+}
+
+test('patch accepts gradients, constraints and in-place text replacement', async () => {
+  const rect = fixtureNode('1:1', { constraints: { horizontal: 'MIN', vertical: 'MIN' }, rotation: 0 });
+  let text = 'At 1X2 we play';
+  const runs = [];
+  const label = fixtureNode('1:2', { type: 'TEXT', fontName: { family: 'Inter', style: 'Regular' }, getRangeAllFontNames() { return [this.fontName]; },
+    get characters() { return text; },
+    insertCharacters(start, chars) { runs.push(['insert', start, chars]); text = text.slice(0, start) + chars + text.slice(start); },
+    deleteCharacters(start, end) { runs.push(['delete', start, end]); text = text.slice(0, start) + text.slice(end); } });
+  const plugin = harness([rect, label], { command: 'edit' });
+  const gradient = { type: 'GRADIENT_LINEAR', gradientTransform: [[1, 0, 0], [0, 1, 0]], gradientStops: [{ position: 0, color: { r: 1, g: 0, b: 0, a: 1 } }, { position: 1, color: { r: 0, g: 0, b: 1, a: 1 }, extra: 'dropped' }] };
+  const result = await plugin.request('patch', { operations: [
+    { nodeId: rect.id, changes: { fills: [gradient], constraints: { horizontal: 'SCALE', vertical: 'SCALE' }, rotation: 12 } },
+    { nodeId: label.id, changes: { textReplace: [{ from: '1X2', to: 'AstroBet' }] } }
+  ] });
+  assert.equal(result.ok, true, JSON.stringify(result.error));
+  assert.equal(rect.fills[0].type, 'GRADIENT_LINEAR'); assert.equal(rect.fills[0].gradientStops[1].extra, undefined);
+  assert.equal(JSON.stringify(rect.constraints), JSON.stringify({ horizontal: 'SCALE', vertical: 'SCALE' })); assert.equal(rect.rotation, 12);
+  assert.equal(text, 'At AstroBet we play');
+  assert.equal(runs[0][0], 'insert');
+});
+
+test('patch rejects image paints and unknown text', async () => {
+  const rect = fixtureNode('1:1');
+  const plugin = harness([rect], { command: 'edit' });
+  assert.equal((await plugin.request('patch', { operations: [{ nodeId: rect.id, changes: { fills: [{ type: 'IMAGE', imageHash: 'x' }] } }] })).error.code, 'INVALID_PATCH');
+});
+
+test('build creates from SVG, makes a component, swaps an instance and removes layers last', async () => {
+  const frame = container('1:1');
+  const old = fixtureNode('1:3', { name: 'Old', type: 'VECTOR', remove() { this.removed = true; frame.children.splice(frame.children.indexOf(this), 1); } });
+  const instance = fixtureNode('1:4', { type: 'INSTANCE', name: 'Logo', async getMainComponentAsync() { return this.main; }, swapComponent(component) { this.main = component; } });
+  instance.main = { id: '0:9', type: 'COMPONENT' };
+  frame.children.push(old, instance); old.parent = frame; instance.parent = frame;
+  const nodes = [frame, old, instance];
+  const plugin = harness(nodes, { command: 'edit' });
+  plugin.figma.createNodeFromSvg = svg => { const made = container('9:1', { name: 'svg', remove() { this.removed = true; } }); made.svg = svg; made.rescale = function (f) { this.width *= f; this.height *= f; }; nodes.push(made); return made; };
+  plugin.figma.createComponentFromNode = source => { const component = { ...source, id: '9:2', type: 'COMPONENT', remove() { this.removed = true; } }; nodes.push(component); return component; };
+  const result = await plugin.request('build', { steps: [
+    { action: 'createSvg', parentId: frame.id, svg: '<svg viewBox="0 0 10 10"><path d="M0 0H10V10Z"/></svg>', as: 'mark', fitWidth: 200, name: 'Mark' },
+    { action: 'componentize', nodeId: '$mark', as: 'logo', description: 'AstroBet' },
+    { action: 'swap', nodeId: instance.id, componentId: '$logo', expectedComponentId: '0:9' },
+    { action: 'remove', nodeId: old.id, expected: { name: 'Old', type: 'VECTOR' } }
+  ] });
+  assert.equal(result.ok, true, JSON.stringify(result.error));
+  assert.equal(result.result.refs.logo, '9:2');
+  assert.equal(instance.main.id, '9:2');
+  assert.equal(old.removed, true);
+  assert.equal(plugin.undoCount(), 1);
+});
+
+test('build refuses scripts in SVG, unexpected removals and rolls back created layers', async () => {
+  const frame = container('1:1');
+  const nodes = [frame];
+  const plugin = harness(nodes, { command: 'edit' });
+  let made;
+  plugin.figma.createNodeFromSvg = () => { made = container('9:1', { remove() { this.removed = true; } }); return made; };
+  const script = await plugin.request('build', { steps: [{ action: 'createSvg', parentId: frame.id, svg: '<svg><script>alert(1)</script></svg>' }] });
+  assert.equal(script.error.code, 'INVALID_BUILD');
+  const stale = await plugin.request('build', { steps: [
+    { action: 'createSvg', parentId: frame.id, svg: '<svg/>' },
+    { action: 'remove', nodeId: frame.id, expected: { name: 'Something else', type: 'FRAME' } }
+  ] });
+  assert.equal(stale.error.code, 'STALE_PATCH');
+  assert.equal(made.removed, true);
+  const readOnly = harness([frame]);
+  assert.equal((await readOnly.request('build', { steps: [{ action: 'remove', nodeId: frame.id }] })).error.code, 'WRITE_DISABLED');
+});
+
+
+test('a missing font can be swapped for an available one on the range it covers', async () => {
+  let text = 'Use italics: 1X2';
+  const fonts = [{ family: 'Brand', style: 'Regular' }, { family: 'Brand', style: 'Bold Italic' }];
+  const ranges = [{ start: 0, end: 13, font: fonts[0] }, { start: 13, end: 16, font: fonts[1] }];
+  const set = [];
+  const label = fixtureNode('1:2', { type: 'TEXT', fontName: Symbol('mixed'), get characters() { return text; },
+    getStyledTextSegments() { return ranges.map(r => ({ start: r.start, end: r.end, fontName: r.font })); },
+    setRangeFontName(start, end, font) { set.push([start, end, font.family]); for (const r of ranges) if (r.start >= start && r.end <= end) r.font = font; },
+    insertCharacters(start, chars) { text = text.slice(0, start) + chars + text.slice(start); },
+    deleteCharacters(start, end) { text = text.slice(0, start) + text.slice(end); } });
+  const loadFont = async font => { if (font.style === 'Bold Italic' && font.family === 'Brand') throw new Error('missing'); };
+  const plugin = harness([label], { command: 'edit', loadFont });
+  const refused = await plugin.request('patch', { operations: [{ nodeId: label.id, changes: { textReplace: [{ from: '1X2', to: 'AstroBet' }] } }] });
+  assert.equal(refused.error.code, 'FONT_UNAVAILABLE'); assert.equal(text, 'Use italics: 1X2');
+  const result = await plugin.request('patch', { operations: [{ nodeId: label.id, changes: { textReplace: [{ from: '1X2', to: 'AstroBet' }], rangeFontName: [{ start: 13, end: 16, family: 'Open', style: 'Bold Italic' }] } }] });
+  assert.equal(result.ok, true, JSON.stringify(result.error));
+  assert.equal(set[0][2], 'Open'); assert.equal(text, 'Use italics: AstroBet');
+});
